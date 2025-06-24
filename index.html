@@ -1,0 +1,1363 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Assistant - Document Chat</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+          "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        background-color: #ffffff;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      /* Header */
+      .header {
+        border-bottom: 1px solid #e2e8f0;
+        background-color: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(8px);
+        position: sticky;
+        top: 0;
+        z-index: 50;
+      }
+
+      .header-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px;
+        max-width: 896px;
+        margin: 0 auto;
+      }
+
+      .header-info h1 {
+        font-size: 20px;
+        font-weight: 600;
+        line-height: 28px;
+        color: #020817;
+      }
+
+      .header-info p {
+        font-size: 14px;
+        color: #64748b;
+        line-height: 20px;
+      }
+
+      /* Mode Toggle */
+      .mode-toggle {
+        display: flex;
+        background-color: #f1f5f9;
+        border-radius: 8px;
+        padding: 4px;
+        gap: 0;
+      }
+
+      .mode-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+        flex: 1;
+      }
+
+      .mode-btn.active {
+        background-color: #ffffff;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      }
+
+      .mode-btn:hover:not(.active) {
+        background-color: rgba(255, 255, 255, 0.5);
+      }
+
+      .mode-btn svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* Messages Area */
+    .messages-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 0;
+        display: flex;
+        flex-direction: column;
+        /* IMPORTANT: Ensure these are NOT here as defaults.
+           They will be dynamically set by JavaScript when needed for the empty state. */
+        /* justify-content: center; */
+        /* align-items: center; */
+      }
+
+      .empty-state {
+        max-width: 448px; /* Adjusted for better appearance based on screenshot */
+        margin: 0 auto;
+        padding: 48px 16px;
+        text-align: center;
+        /* ADD THESE LINES for proper internal layout and centering of its own children */
+        display: flex;
+        flex-direction: column;
+        align-items: center; /* Center icon, title, text horizontally within empty state */
+        gap: 16px; /* Add space between the icon, title, and paragraph */
+      }
+
+     .empty-state-icon {
+        width: 64px;
+        height: 64px;
+        /* REMOVE or comment out: margin: 0 auto 16px; */
+        background: linear-gradient(to bottom right, #a855f7, #2563eb);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .empty-state-icon svg {
+        width: 32px;
+        height: 32px;
+        color: white;
+      }
+
+    .empty-state h2 {
+        font-size: 24px;
+        font-weight: 600;
+        /* REMOVE or comment out: margin-bottom: 8px; */
+        color: #020817;
+      }
+
+      .empty-state p {
+        color: #64748b;
+        max-width: 448px;
+        margin: 0 auto;
+      }
+
+      /* Message Bubble */
+     .message {
+        display: flex; /* Makes each message row a flex container */
+        gap: 12px; /* Space between avatar and message content */
+        max-width: 896px; /* Max width for the entire message row, ensures it doesn't get too wide on large screens */
+        padding: 24px 16px;
+        width: 100%; /* IMPORTANT: Makes the message row take the full available width */
+        align-items: flex-start; /* Default alignment for content within the message row (e.g., avatar and bubble start at top) */
+        margin: 0 auto; /* Centers the entire message row within messages-container if it's narrower than 100% due to max-width */
+      }
+
+      /* Specific styles for user messages */
+      .message.user {
+        justify-content: flex-end; /* Pushes user bubble to the right */
+        align-items: flex-end; /* Aligns user avatar to the bottom if needed */
+      }
+
+      /* Specific styles for assistant messages (default is fine, but explicit for clarity) */
+      .message.assistant {
+        justify-content: flex-start; /* Keeps assistant bubble to the left */
+        align-items: flex-start;
+      }
+
+      .message.user {
+        justify-content: flex-end;
+      }
+
+      .message.assistant {
+        justify-content: flex-start;
+      }
+
+      .message-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .message-avatar.user {
+        background: linear-gradient(to bottom right, #10b981, #059669);
+      }
+
+      .message-avatar.assistant {
+        background: linear-gradient(to bottom right, #a855f7, #2563eb);
+      }
+
+      .message-avatar svg {
+        width: 16px;
+        height: 16px;
+        color: white;
+      }
+
+   .message-content {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-width: 80%;
+        
+      }
+      .message.user .message-content {
+        margin-right: 12px; /* Add some space before the user avatar */
+        margin-left: auto; /* Pushes the message content to the right edge within its flex parent (.message) */
+      }
+
+    .message.assistant .message-content {
+        margin-left: 12px; /* Add some space after the assistant avatar */
+        margin-right: auto; /* Pushes the message content to the left edge within its flex parent (.message) */
+      }
+
+      .message-bubble {
+        padding: 12px 16px;
+        border-radius: 12px;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .message.user .message-bubble {
+        background-color: #2563eb;
+        color: white;
+      }
+
+      .message.assistant .message-bubble {
+        background-color: #f1f5f9;
+        color: #020817;
+        border: 1px solid #e2e8f0;
+      }
+
+      .message-attachments {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        max-width: 100%;
+      }
+
+      .attachment-badge {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        background-color: #f1f5f9;
+        border-radius: 6px;
+        font-size: 12px;
+        color: #64748b;
+      }
+
+      .attachment-badge svg {
+        width: 12px;
+        height: 12px;
+      }
+
+      .message-time {
+        font-size: 12px;
+        color: #64748b;
+      }
+
+      /* Loading Animation */
+     .loading-message {
+        display: flex; /* Make it a flex container */
+        gap: 12px; /* Space between avatar and dots */
+        max-width: 896px; /* Max width for the entire loading row */
+        padding: 24px 16px;
+        width: 100%; /* Ensure it takes full width of its container */
+        justify-content: flex-start; /* IMPORTANT: Align content to the left */
+        align-items: center; /* Vertically align items in the middle of the row */
+        margin: 0 auto; /* Center the entire loading row if max-width applies */
+      }
+
+      .loading-dots {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        background-color: #f1f5f9;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+      }
+
+      .loading-dots .dots {
+        display: flex;
+        gap: 4px;
+      }
+
+      .loading-dots .dot {
+        width: 8px;
+        height: 8px;
+        background-color: #64748b;
+        border-radius: 50%;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+
+      .loading-dots .dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .loading-dots .dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes pulse {
+        0%,
+        60%,
+        100% {
+          opacity: 0.5;
+        }
+        30% {
+          opacity: 1;
+        }
+      }
+
+      /* File Upload Area */
+      .file-upload-area {
+        border-top: 1px solid #e2e8f0;
+        background-color: rgba(241, 245, 249, 0.3);
+        padding: 16px;
+        display: none;
+      }
+
+      .file-upload-area.visible {
+        display: block;
+      }
+
+      .file-upload-container {
+        max-width: 896px;
+        margin: 0 auto;
+      }
+
+      .file-drop-zone {
+        border: 2px dashed #cbd5e1;
+        border-radius: 8px;
+        padding: 32px;
+        text-align: center;
+        transition: all 0.2s ease;
+        background-color: white;
+      }
+
+      .file-drop-zone.drag-over {
+        border-color: #2563eb;
+        background-color: rgba(37, 99, 235, 0.05);
+      }
+
+      .file-drop-zone-icon {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 16px;
+        background-color: #f1f5f9;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .file-drop-zone-icon svg {
+        width: 24px;
+        height: 24px;
+        color: #64748b;
+      }
+
+      .file-drop-zone h3 {
+        font-size: 18px;
+        font-weight: 500;
+        margin-bottom: 4px;
+      }
+
+      .file-drop-zone p {
+        font-size: 14px;
+        color: #64748b;
+        margin-bottom: 16px;
+      }
+
+      .file-drop-zone .file-types {
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 16px;
+      }
+
+      .file-input-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 16px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background-color: white;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .file-input-btn:hover {
+        background-color: #f8fafc;
+      }
+
+      .file-list {
+        margin-top: 16px;
+      }
+
+      .file-list h4 {
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 8px;
+      }
+
+      .file-list-container {
+        max-height: 192px;
+        overflow-y: auto;
+      }
+
+      .file-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        background-color: white;
+      }
+
+      .file-item-icon {
+        color: #64748b;
+      }
+
+      .file-item-icon svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .file-item-info {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .file-item-name {
+        font-size: 14px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .file-item-meta {
+        font-size: 12px;
+        color: #64748b;
+      }
+
+      .file-item-type {
+        padding: 2px 6px;
+        background-color: #f1f5f9;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 500;
+        color: #64748b;
+        text-transform: uppercase;
+      }
+
+      .file-item-remove {
+        width: 32px;
+        height: 32px;
+        border: none;
+        background: transparent;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #64748b;
+        transition: all 0.15s ease;
+      }
+
+      .file-item-remove:hover {
+        color: #dc2626;
+        background-color: #fef2f2;
+      }
+
+      .file-item-remove svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* Input Area */
+      .input-area {
+        border-top: 1px solid #e2e8f0;
+        background-color: #ffffff;
+        padding: 16px;
+        position: sticky;
+        bottom: 0;
+      }
+
+      .input-container {
+        max-width: 896px;
+        margin: 0 auto;
+      }
+
+      .input-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px;
+        background-color: white;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      }
+
+      .input-row {
+        display: flex;
+        gap: 8px;
+      }
+
+      .input-wrapper {
+        flex: 1;
+      }
+
+      .input-textarea {
+        width: 100%;
+        min-height: 60px;
+        border: none;
+        outline: none;
+        resize: none;
+        font-size: 14px;
+        line-height: 1.5;
+        font-family: inherit;
+        background: transparent;
+      }
+
+      .input-textarea::placeholder {
+        color: #9ca3af;
+      }
+
+      .input-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .attach-btn {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        border: none;
+        background: transparent;
+        font-size: 12px;
+        color: #64748b;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: all 0.15s ease;
+      }
+
+      .attach-btn:hover,
+      .attach-btn.active {
+        background-color: #f1f5f9;
+      }
+
+      .attach-btn svg {
+        width: 12px;
+        height: 12px;
+      }
+
+      .send-btn {
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 6px;
+        background-color: #2563eb;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+        align-self: flex-end;
+      }
+
+      .send-btn:hover:not(:disabled) {
+        background-color: #1d4ed8;
+      }
+
+      .send-btn:disabled {
+        background-color: #cbd5e1;
+        cursor: not-allowed;
+      }
+
+      .send-btn svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .header-content {
+          padding: 12px;
+        }
+
+        .message {
+          padding: 16px 12px;
+        }
+
+        .empty-state {
+          padding: 32px 12px;
+        }
+
+        .file-upload-container,
+        .input-container {
+          padding: 0 12px;
+        }
+      }
+      /* New styles for document status and clear button within file-list */
+ .document-status-and-clear {
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     padding: 10px 0;
+     margin-top: 10px;
+     border-top: 1px solid #e2e8f0;
+ }
+
+ #documentStatusText {
+     font-size: 14px;
+     font-weight: 500;
+     color: #020817;
+ }
+
+ .clear-document-button {
+     background-color: #ef4444; /* Red for clear */
+     color: white;
+     border: none;
+     border-radius: 6px;
+     padding: 8px 12px;
+     font-size: 14px;
+     cursor: pointer;
+     display: flex;
+     align-items: center;
+     gap: 4px;
+     transition: background-color 0.2s ease;
+ }
+
+ .clear-document-button:hover {
+     background-color: #dc2626;
+ }
+
+      /* Hidden input */
+      #fileInput {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chat-container">
+      <div class="header">
+        <div class="header-content">
+          <div class="header-info">
+            <h1>AI Assistant</h1>
+            <p id="headerSubtitle">General conversation</p>
+          </div>
+          <div class="mode-toggle">
+            <button class="mode-btn active" data-mode="chat">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+              </svg>
+              Chat
+            </button>
+            <button class="mode-btn" data-mode="documents">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"
+                />
+                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                <path d="M10 9H8" />
+                <path d="M16 13H8" />
+                <path d="M16 17H8" />
+              </svg>
+              Documents
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="messages-container" id="messagesContainer">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-state-icon">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+            </svg>
+          </div>
+          <h2 id="emptyStateTitle">Start a conversation</h2>
+          <p id="emptyStateText">
+            Type a message below to start chatting with the AI assistant.
+          </p>
+        </div>
+      </div>
+
+      <div class="file-upload-area" id="fileUploadArea">
+        <div class="file-upload-container">
+          <div class="file-drop-zone" id="fileDropZone">
+            <div class="file-drop-zone-icon">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17,8 12,3 7,8" />
+                <line x1="12" x2="12" y1="3" y2="15" />
+              </svg>
+            </div>
+            <h3>Upload Documents</h3>
+            <p>Drag and drop files here, or click to browse</p>
+            <p class="file-types">
+              Supports PDF, DOC, DOCX, TXT, and image files
+            </p>
+            <label for="fileInput" class="file-input-btn">Choose Files</label>
+            <input
+              type="file"
+              id="fileInput"
+              multiple
+              accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif"
+            />
+          </div>
+          <div class="file-list" id="fileList" style="display: none">
+         <h4>Uploaded Documents (<span id="fileCount">0</span>)</h4>
+         <div class="file-list-container" id="fileListContainer">
+           <!-- Dynamically added file items will go here -->
+         </div>
+         <!-- New: Document Status/Clear Button Area -->
+         <div class="document-status-and-clear" id="documentStatusAndClear">
+             <span id="documentStatusText">No Document Loaded</span>
+             <button id="clearDocumentBtn" class="clear-document-button" style="display: none;">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v3"/><path d="M14 2v6h6"/><path d="m14 14-4 4"/><path d="m10 14 4 4"/></svg>
+                 Clear Document
+             </button>
+         </div>
+       </div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <div class="input-container">
+          <div class="input-card">
+            <div class="input-row">
+              <div class="input-wrapper">
+                <textarea
+                  id="messageInput"
+                  class="input-textarea"
+                  placeholder="Type your message here..."
+                  rows="1"
+                ></textarea>
+                <div
+                  class="input-controls"
+                  id="inputControls"
+                  style="display: none"
+                >
+                  <button class="attach-btn" id="attachBtn">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"
+                      />
+                    </svg>
+                    <span id="attachText">Attach documents</span>
+                  </button>
+                </div>
+              </div>
+              <button class="send-btn" id="sendBtn" disabled>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m22 2-7 20-4-9-9-4Z" />
+                  <path d="M22 2 11 13" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  
+     
+   <script>
+    // Application State - Define global variables first
+    let currentMode = "chat";
+    let messages = []; // This array holds all chat messages
+    let uploadedFiles = []; // This array holds metadata of currently selected files for display
+    let isLoading = false;
+    let uploadedDocumentContent = null; // Stores the *text content* of the single uploaded document
+
+    // DOM Elements - Get references to HTML elements
+    const messagesContainer = document.getElementById("messagesContainer");
+    const emptyState = document.getElementById("emptyState");
+    const emptyStateTitle = document.getElementById("emptyStateTitle");
+    const emptyStateText = document.getElementById("emptyStateText");
+    const headerSubtitle = document.getElementById("headerSubtitle");
+    const fileUploadArea = document.getElementById("fileUploadArea");
+    const fileDropZone = document.getElementById("fileDropZone");
+    const fileInput = document.getElementById("fileInput"); // The actual file input element
+    const fileList = document.getElementById("fileList");
+    const fileListContainer = document.getElementById("fileListContainer");
+    const fileCount = document.getElementById("fileCount");
+    const messageInput = document.getElementById("messageInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const attachBtn = document.getElementById("attachBtn");
+    const attachText = document.getElementById("attachText");
+    const inputControls = document.getElementById("inputControls");
+    const modeButtons = document.querySelectorAll(".mode-btn");
+    const fileDropZoneSubtitle = document.querySelector("#fileDropZone p:nth-of-type(1)"); // To update text "Drag & drop..."
+    const fileInputBtn = document.querySelector("#fileDropZone .file-input-btn"); // To hide "Choose Files" button
+
+ // This is a NEW HTML element that needs to be added (Step 2)
+    const clearDocumentBtn = document.getElementById("clearDocumentBtn");
+
+
+    // --- Helper/Utility Functions (must be defined before they are called) ---
+
+    // Function to scroll to bottom of messages container
+    function scrollToBottom() {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    // Manages the visibility of the empty state message based on application state
+    function updateEmptyStateVisibility() {
+        if (currentMode === "chat" && messages.length === 0) {
+            emptyState.style.display = "flex"; // Show empty state for chat mode when no messages
+        } else if (currentMode === "documents" && uploadedFiles.length === 0 && messages.length === 0) {
+            emptyState.style.display = "flex"; // Show empty state for document mode when no files uploaded and no messages
+        } else {
+            emptyState.style.display = "none"; // Hide empty state in all other cases
+        }
+    }
+    // Function to render messages in the chat container
+function renderMessages() {
+        // Clear existing dynamic messages (anything that isn't the emptyState)
+        const currentMessages = messagesContainer.querySelectorAll('.message, .loading-message');
+        currentMessages.forEach(msg => msg.remove());
+
+        // Append messages from the 'messages' array
+        messages.forEach(message => {
+            const isUser = message.role === "user";
+            const attachmentsHTML =
+                message.attachments && message.attachments.length > 0
+                    ? `<div class="message-attachments">
+                                ${message.attachments
+                                    .map(
+                                        (file) => `
+                                <div class="attachment-badge">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                                    </svg>
+                                    <span>${file.name}</span>
+                                </div>
+                                `
+                                    )
+                                    .join("")}
+                            </div>`
+                        : "";
+
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', message.role);
+            messageDiv.innerHTML = `
+                ${
+                    !isUser
+                        ? `
+                        <div class="message-avatar assistant">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 8V4H8"/>
+                                <rect width="16" height="12" x="4" y="8" rx="2"/>
+                                <path d="M2 14h2"/>
+                                <path d="M20 14h2"/>
+                                <path d="M15 13v2"/>
+                                <path d="M9 13v2"/>
+                            </svg>
+                        </div>
+                        `
+                        : ""
+                }
+                <div class="message-content">
+                    <div class="message-bubble">${message.content}</div>
+                    ${attachmentsHTML}
+                    <div class="message-time">${message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+                </div>
+                ${
+                    isUser
+                        ? `
+                        <div class="message-avatar user">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                        </div>
+                        `
+                        : ""
+                }
+            `;
+            messagesContainer.appendChild(messageDiv);
+        });
+
+        // <--- THIS IS THE CRUCIAL PART THAT WAS MISSING IN YOUR PROVIDED CODE --->
+        // Adjust messagesContainer layout based on messages presence
+        if (messages.length > 0) {
+            messagesContainer.style.justifyContent = "flex-start"; // Align messages to the top
+            messagesContainer.style.alignItems = "flex-start";   // Align messages to the start (left)
+        } else {
+            messagesContainer.style.justifyContent = "center"; // Center content for empty state
+            messagesContainer.style.alignItems = "center";   // Center content for empty state
+        }
+        // <--- END OF MISSING PART --->
+
+        // Ensure emptyState visibility is managed AFTER messages are rendered
+        updateEmptyStateVisibility();
+
+        scrollToBottom();
+    }
+    // Function to show the loading animation
+    function showLoadingMessage() {
+        const loadingHTML = `
+                <div class="loading-message">
+                    <div class="message-avatar assistant">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 8V4H8"/>
+                            <rect width="16" height="12" x="4" y="8" rx="2"/>
+                            <path d="M2 14h2"/>
+                            <path d="M20 14h2"/>
+                            <path d="M15 13v2"/>
+                            <path d="M9 13v2"/>
+                        </svg>
+                    </div>
+                    <div class="loading-dots">
+                        <div class="dots">
+                            <div class="dot"></div>
+                            <div class="dot"></div>
+                            <div class="dot"></div>
+                        </div>
+                        <span style="color: #64748b; margin-left: 8px;">AI is thinking...</span>
+                    </div>
+                </div>
+            `;
+
+        messagesContainer.insertAdjacentHTML('beforeend', loadingHTML); // Use insertAdjacentHTML to append
+        scrollToBottom();
+    }
+    // File Upload Handlers
+    function handleFileSelect(e) {
+        const files = Array.from(e.target.files);
+        processFiles(files);
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault();
+        fileDropZone.classList.add("drag-over");
+    }
+
+    function handleDragLeave(e) {
+        e.preventDefault();
+        fileDropZone.classList.remove("drag-over");
+    }
+
+    function handleFileDrop(e) {
+        e.preventDefault();
+        fileDropZone.classList.remove("drag-over");
+        const files = Array.from(e.dataTransfer.files);
+        processFiles(files);
+    }
+
+    function processFiles(files) {
+        if (files.length === 0) return;
+
+        uploadedFiles = []; // Clear previous files
+        uploadedDocumentContent = null; // Clear previous content
+
+        const file = files[0];
+        const fileObj = {
+            id: Math.random().toString(36).substr(2, 9),
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            uploadedAt: new Date(),
+        };
+        uploadedFiles.push(fileObj);
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            uploadedDocumentContent = e.target.result;
+            console.log("Document content loaded for RAG.");
+            updateSendButton();
+        };
+        reader.onerror = (e) => {
+            console.error("Error reading file:", e);
+            alert("Failed to read file content.");
+            uploadedDocumentContent = null;
+            updateSendButton();
+            updateEmptyStateVisibility();
+        };
+
+        // Read as text for RAG (adjust if backend supports different formats directly)
+        if (file.type.startsWith("text/") || file.type === "application/pdf" || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || file.type === "application/msword") {
+            reader.readAsText(file);
+        } else {
+            alert("Unsupported file type for direct text extraction. Only TXT, PDF, DOCX are fully supported for content reading.");
+            uploadedFiles = uploadedFiles.filter(f => f.id !== fileObj.id);
+            uploadedDocumentContent = null;
+        }
+
+        updateFileList();
+        updateAttachText();
+    }
+
+    function removeFile(fileId) {
+        uploadedFiles = uploadedFiles.filter((file) => file.id !== fileId);
+        if (uploadedFiles.length === 0) {
+            uploadedDocumentContent = null;
+        }
+        updateFileList();
+        updateAttachText();
+        updateSendButton();
+        updateEmptyStateVisibility();
+    }
+
+    // UI Update Functions
+    function updateFileList() {
+        if (uploadedFiles.length > 0) {
+            fileList.style.display = "block";
+            fileDropZone.style.display = "none";
+            fileCount.textContent = uploadedFiles.length;
+            fileListContainer.innerHTML = uploadedFiles
+                .map(
+                    (file) => `
+                <div class="file-item">
+                    <span class="file-item-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+                            <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+                        </svg>
+                    </span>
+                    <div class="file-item-info">
+                        <div class="file-item-name">${file.name}</div>
+                        <div class="file-item-meta">
+                            ${(file.size / 1024 / 1024).toFixed(2)} MB •
+                            <span class="file-item-type">${file.type.split("/").pop()}</span>
+                        </div>
+                    </div>
+                    <button class="file-item-remove" onclick="removeFile('${file.id}')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            `
+                )
+                .join("");
+        } else {
+            fileList.style.display = "none";
+            fileDropZone.style.display = "block";
+            fileCount.textContent = "0";
+            fileListContainer.innerHTML = "";
+        }
+    }
+
+    function updateSendButton() {
+        if (isLoading) {
+            sendBtn.disabled = true;
+            return;
+        }
+
+        const hasText = messageInput.value.trim().length > 0;
+        const hasFile = uploadedFiles.length > 0 && uploadedDocumentContent !== null;
+
+        if (currentMode === "chat") {
+            sendBtn.disabled = !hasText;
+        } else { // documents mode
+            sendBtn.disabled = !(hasText && hasFile);
+        }
+    }
+
+    function updateAttachText() {
+        if (uploadedFiles.length > 0) {
+            attachText.textContent = `${uploadedFiles[0].name}`;
+        } else {
+            attachText.textContent = "Attach documents";
+        }
+    }
+
+    function toggleFileUpload() {
+        fileUploadArea.classList.toggle("visible");
+        updateFileList(); // Ensure correct inner display after toggle
+    }
+
+    // Core Logic Functions
+    function switchMode(mode) {
+        currentMode = mode;
+        modeButtons.forEach((btn) => {
+            btn.classList.toggle("active", btn.dataset.mode === mode);
+        });
+        updateUI();
+    }
+
+    function updateUI() {
+        if (currentMode === "chat") {
+            headerSubtitle.textContent = "General conversation";
+            messageInput.placeholder = "Type your message here...";
+            emptyStateTitle.textContent = "Start a conversation";
+            emptyStateText.textContent = "Type a message below to start chatting with the AI assistant.";
+            inputControls.style.display = "none";
+            fileUploadArea.classList.remove("visible");
+        } else { // documents mode
+            headerSubtitle.textContent = "Document-based Q&A";
+            messageInput.placeholder = "Ask a question about your uploaded documents...";
+            emptyStateTitle.textContent = "Ask questions about your documents";
+            emptyStateText.textContent = "Upload documents and ask questions to get AI-powered insights from your files.";
+            inputControls.style.display = "flex";
+            fileUploadArea.classList.add("visible"); // Always show in document mode
+        }
+        updateAttachText();
+        updateFileList();// Ensure file list/drop zone display is correct
+  
+        updateEmptyStateVisibility(); 
+      }
+
+    async function sendMessage() {
+        const text = messageInput.value.trim();
+        const actualFileObject = fileInput.files[0]; // Get the actual File object directly from the input
+
+        // Input validation based on mode
+        if (currentMode === "chat") {
+            if (!text) {
+                return; // Do nothing if no text in chat mode
+            }
+        } else { // documents mode
+            if (!actualFileObject || uploadedDocumentContent === null) {
+                const aiMessage = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    content: "⚠️ Please select a document and ensure its content is loaded before asking questions.",
+                    role: "assistant",
+                    timestamp: new Date(),
+                };
+                messages.push(aiMessage);
+                renderMessages(); // Render warning
+                return;
+            }
+            if (!text) {
+                const aiMessage = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    content: "⚠️ Please type a question about your document.",
+                    role: "assistant",
+                    timestamp: new Date(),
+                };
+                messages.push(aiMessage);
+                renderMessages(); // Render warning
+                return;
+            }
+        }
+
+        if (isLoading) return; // Prevent multiple sends
+
+        // 1. Create and display user message
+        const userMessage = {
+            id: Math.random().toString(36).substr(2, 9),
+            content: text,
+            role: "user",
+            timestamp: new Date(),
+            attachments: (currentMode === "documents" && actualFileObject) ? [{ name: actualFileObject.name, type: actualFileObject.type }] : [],
+        };
+        messages.push(userMessage);
+        messageInput.value = ""; // Clear input field
+        updateSendButton(); // Disable send button
+        const fileUploadArea = document.getElementById("fileUploadArea");
+        if (fileUploadArea) {
+            fileUploadArea.style.display = 'none';
+        }
+        emptyState.style.display = "none";
+        renderMessages(); // Render user message immediately
+
+        // 2. Show loading message
+        isLoading = true;
+        updateSendButton(); // Re-disable to show loading state
+        showLoadingMessage(); // Append AI thinking message
+
+        // 3. Prepare payload and endpoint
+        let endpoint;
+        let requestBody;
+        let headers = {};
+
+        if (currentMode === "chat") {
+            endpoint = "/chat";
+            requestBody = JSON.stringify({
+                session_id: "user1",
+                message: text,
+            });
+            headers["Content-Type"] = "application/json";
+        } else { // documents mode (RAG)
+            endpoint = "/rag_upload"; // Ensure this matches your backend FastAPI endpoint
+            const formData = new FormData();
+            formData.append('message', text);
+            formData.append('file', actualFileObject); // Append the actual File object directly
+
+            requestBody = formData;
+            // No 'Content-Type' header needed for FormData
+        }
+
+        // 4. Send request and handle response
+        try {
+            const res = await fetch(`http://localhost:8000${endpoint}`, {
+                method: "POST",
+                headers: headers,
+                body: requestBody,
+            });
+
+            if (!res.ok) {
+                const errorText = await res.text();
+                throw new Error(`HTTP error! status: ${res.status}, body: ${errorText}`);
+            }
+
+            const data = await res.json();
+
+            // 5. Add AI response to messages
+            const aiMessage = {
+                id: Math.random().toString(36).substr(2, 9),
+                content: data.response || "[Error: Empty response]",
+                role: "assistant",
+                timestamp: new Date(),
+            };
+            messages.push(aiMessage);
+
+            // 6. Clear document state variables ONLY after successful RAG response
+            if (currentMode === "documents") {
+                //uploadedFiles = [];
+                //uploadedDocumentContent = null;
+                updateFileList(); // Reset file list UI to "Drag & Drop"
+            }
+
+        } catch (err) {
+            console.error("API error:", err);
+            const aiMessage = {
+                id: Math.random().toString(36).substr(2, 9),
+                content: `⚠️ Failed to fetch response from server: ${err.message || err}. Please ensure the backend is running and accessible.`,
+                role: "assistant",
+                timestamp: new Date(),
+            };
+            messages.push(aiMessage); // Add error message to chat
+        } finally {
+            // 7. Update UI: remove loading, enable send, re-render all messages
+            isLoading = false;
+            updateSendButton();
+            updateEmptyStateVisibility();
+            renderMessages(); // Re-render to show AI response or error message
+            scrollToBottom(); // Ensure scroll to bottom after final render
+            // Clear the actual file input element for a fresh selection for the next upload
+            fileInput.value = '';
+            const selectedFileNameDiv = document.getElementById('selectedFileName');
+            if (selectedFileNameDiv) {
+                selectedFileNameDiv.innerText = '';
+            }
+        }
+    }
+
+    // Initialize Application - Call after all functions are defined
+    function init() {
+        setupEventListeners();
+        updateUI();
+        // Initial render in case there are pre-loaded messages (though currently none)
+        renderMessages();
+       
+    }
+
+    // Event Listeners Setup (called by init)
+    function setupEventListeners() {
+        modeButtons.forEach((btn) => {
+            btn.addEventListener("click", () => switchMode(btn.dataset.mode));
+        });
+
+        messageInput.addEventListener("input", updateSendButton);
+        messageInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        sendBtn.addEventListener("click", sendMessage);
+
+        fileInput.addEventListener("change", handleFileSelect);
+        attachBtn.addEventListener("click", toggleFileUpload);
+
+        fileDropZone.addEventListener("click", () => fileInput.click());
+        fileDropZone.addEventListener("dragover", handleDragOver);
+        fileDropZone.addEventListener("dragleave", handleDragLeave);
+        fileDropZone.addEventListener("drop", handleFileDrop);
+        removeFileButton.addEventListener("click", removeSelectedFile);
+        clearDocumentBtn.addEventListener("click", clearDocument);
+    }
+
+    // Call init to start the application
+    init();
+
+</script>
+  </body>
+</html>
